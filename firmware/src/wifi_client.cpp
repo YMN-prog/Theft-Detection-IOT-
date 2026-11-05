@@ -5,8 +5,9 @@ WiFiManager::WiFiManager(const char* ssid, const char* password, const char* bac
       _lastReconnectAttempt(0), _commandCallback(nullptr) {}
 
 void WiFiManager::begin() {
-    Serial.printf("[Wi-Fi] Connecting to SSID: %s ...\n", _ssid);
+    Serial.printf("[Wi-Fi] Connecting to SSID: %s ", _ssid);
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
     WiFi.begin(_ssid, _password);
 
 #if defined(ESP8266)
@@ -14,18 +15,43 @@ void WiFiManager::begin() {
     _wifiClientSecure.setInsecure();
     _wifiClientSecure.setTimeout(3000);
 #endif
+
+    // Wait up to 6 seconds during setup for initial Wi-Fi connection
+    for (int i = 0; i < 20 && WiFi.status() != WL_CONNECTED; i++) {
+        delay(300);
+        Serial.print(".");
+    }
+    Serial.println();
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.printf("[Wi-Fi] Connected! IP: %s (RSSI: %d dBm)\n",
+                      WiFi.localIP().toString().c_str(), WiFi.RSSI());
+    } else {
+        Serial.printf("[Wi-Fi] Connecting in background (status %d)...\n", (int)WiFi.status());
+    }
 }
 
 void WiFiManager::update() {
-    if (WiFi.status() == WL_CONNECTED) {
+    static wl_status_t lastStatus = WL_IDLE_STATUS;
+    wl_status_t currentStatus = WiFi.status();
+
+    if (currentStatus != lastStatus) {
+        lastStatus = currentStatus;
+        if (currentStatus == WL_CONNECTED) {
+            Serial.printf("[Wi-Fi] Connected! IP: %s (RSSI: %d dBm)\n",
+                          WiFi.localIP().toString().c_str(), WiFi.RSSI());
+        }
+    }
+
+    if (currentStatus == WL_CONNECTED) {
         return;
     }
 
     unsigned long currentMillis = millis();
-    if (currentMillis - _lastReconnectAttempt >= WIFI_RECONNECT_INTERVAL) {
+    // Re-trigger connection every 20 seconds if disconnected (DO NOT call WiFi.disconnect() which kills DHCP)
+    if (currentMillis - _lastReconnectAttempt >= 20000) {
         _lastReconnectAttempt = currentMillis;
-        Serial.println("[Wi-Fi] Attempting reconnection to AP...");
-        WiFi.disconnect();
+        Serial.printf("[Wi-Fi] Reconnection trigger (status %d)...\n", (int)currentStatus);
         WiFi.begin(_ssid, _password);
     }
 }
