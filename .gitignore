@@ -1,0 +1,53 @@
+# Node.js dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Production build outputs
+dist/
+*/dist/
+build/
+*/build/
+out/
+.output/
+
+# Environment files & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+!*/.env.example
+
+# Local Database & telemetry history
+data/
+backend/data/
+*.db
+*.sqlite
+*.db.json
+
+# Arduino / PlatformIO compilation cache & binaries
+.pio/
+.pioenvs/
+.piolibdeps/
+.clangd/
+*.bin
+*.elf
+*.hex
+*.o
+*.d
+
+# OS & Editor generated files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
