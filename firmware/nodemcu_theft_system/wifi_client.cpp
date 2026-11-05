@@ -8,6 +8,12 @@ void WiFiManager::begin() {
     Serial.printf("[Wi-Fi] Connecting to SSID: %s ...\n", _ssid);
     WiFi.mode(WIFI_STA);
     WiFi.begin(_ssid, _password);
+
+#if defined(ESP8266)
+    // Allow HTTPS connections to cloud backends (Render, Vercel, AWS, etc.) without requiring a huge CA certificate
+    _wifiClientSecure.setInsecure();
+    _wifiClientSecure.setTimeout(3000);
+#endif
 }
 
 void WiFiManager::update() {
@@ -45,16 +51,26 @@ bool WiFiManager::sendTelemetry(const SystemTelemetryData &data, String &outServ
     String endpoint = _backendUrl + BACKEND_TELEMETRY_PATH;
 
 #if defined(ESP8266)
-    if (!http.begin(_wifiClient, endpoint)) {
-#else
-    if (!http.begin(endpoint)) {
-#endif
+    bool isHttps = _backendUrl.startsWith("https://");
+    bool begun = false;
+    if (isHttps) {
+        begun = http.begin(_wifiClientSecure, endpoint);
+    } else {
+        begun = http.begin(_wifiClient, endpoint);
+    }
+    if (!begun) {
         Serial.printf("[HTTP] Failed to initialize connection to %s\n", endpoint.c_str());
         return false;
     }
+#else
+    if (!http.begin(endpoint)) {
+        Serial.printf("[HTTP] Failed to initialize connection to %s\n", endpoint.c_str());
+        return false;
+    }
+#endif
 
     http.addHeader("Content-Type", "application/json");
-    http.setTimeout(2500);
+    http.setTimeout(3500);
 
     char tempBuf[32];
     char humBuf[32];
@@ -115,15 +131,24 @@ bool WiFiManager::sendSecurityEvent(float distanceCm, float thresholdCm, const S
     String endpoint = _backendUrl + BACKEND_EVENT_PATH;
 
 #if defined(ESP8266)
-    if (!http.begin(_wifiClient, endpoint)) {
-#else
-    if (!http.begin(endpoint)) {
-#endif
+    bool isHttps = _backendUrl.startsWith("https://");
+    bool begun = false;
+    if (isHttps) {
+        begun = http.begin(_wifiClientSecure, endpoint);
+    } else {
+        begun = http.begin(_wifiClient, endpoint);
+    }
+    if (!begun) {
         return false;
     }
+#else
+    if (!http.begin(endpoint)) {
+        return false;
+    }
+#endif
 
     http.addHeader("Content-Type", "application/json");
-    http.setTimeout(3000);
+    http.setTimeout(4000);
 
     char payload[300];
     snprintf(payload, sizeof(payload),

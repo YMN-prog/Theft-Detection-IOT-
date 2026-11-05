@@ -7,6 +7,7 @@
     #include <ESP8266WiFi.h>
     #include <ESP8266HTTPClient.h>
     #include <WiFiClient.h>
+    #include <WiFiClientSecure.h>
 #else
     #include <WiFi.h>
     #include <HTTPClient.h>
@@ -59,7 +60,11 @@ private:
     String _backendUrl;
     unsigned long _lastReconnectAttempt;
     CommandCallback _commandCallback;
+
+#if defined(ESP8266)
     WiFiClient _wifiClient;
+    WiFiClientSecure _wifiClientSecure;
+#endif
 
     void parseServerCommands(const String &jsonResponse);
 };
