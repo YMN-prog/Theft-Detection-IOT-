@@ -114,7 +114,18 @@ export const App: React.FC = () => {
       if (data.systemState) setSystemState(data.systemState);
     });
 
+    // Periodic polling fallback to guarantee live updates regardless of WebSocket connection status
+    const pollInterval = setInterval(() => {
+      fetchStatus()
+        .then(res => {
+          setSystemState(res.state);
+          if (res.latest) setTelemetry(res.latest);
+        })
+        .catch(() => {});
+    }, 2500);
+
     return () => {
+      clearInterval(pollInterval);
       unsubInit();
       unsubTelemetry();
       unsubAlert();
