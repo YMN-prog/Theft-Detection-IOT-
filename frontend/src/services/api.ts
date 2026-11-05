@@ -1,7 +1,19 @@
 import { SystemState, TelemetryData, SecurityEvent } from '../types';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
-const API_BASE = BACKEND_URL ? `${BACKEND_URL.replace(/\/$/, '')}/api` : '/api';
+const DEFAULT_CLOUD_BACKEND = 'https://theft-detection-iot.onrender.com';
+
+function getBackendBaseUrl(): string {
+  if (import.meta.env.VITE_BACKEND_URL) {
+    return import.meta.env.VITE_BACKEND_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return DEFAULT_CLOUD_BACKEND;
+  }
+  return '';
+}
+
+const BACKEND_URL = getBackendBaseUrl();
+const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
 export async function fetchStatus(): Promise<{ state: SystemState; latest: TelemetryData | null }> {
   const res = await fetch(`${API_BASE}/system/status`);

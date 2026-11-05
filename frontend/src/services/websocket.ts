@@ -22,15 +22,15 @@ class WebSocketClient {
     }
 
     this.isConnecting = true;
-    const backendEnv = import.meta.env.VITE_BACKEND_URL;
     let wsUrl = '';
-    if (backendEnv) {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') ? 'https://theft-detection-iot.onrender.com' : '');
+    if (backendUrl) {
       try {
-        const url = new URL(backendEnv);
+        const url = new URL(backendUrl);
         const wsProto = url.protocol === 'https:' ? 'wss:' : 'ws:';
         wsUrl = `${wsProto}//${url.host}`;
       } catch (e) {
-        wsUrl = backendEnv.replace(/^http/, 'ws');
+        wsUrl = backendUrl.replace(/^http/, 'ws');
       }
     } else {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

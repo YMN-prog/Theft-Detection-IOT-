@@ -15,8 +15,7 @@
 #define WIFI_RECONNECT_INTERVAL 5000 // Milliseconds between Wi-Fi reconnect attempts
 
 // --- Backend API Configuration ---
-// IP address of computer running the Node.js backend (e.g. "http://192.168.1.50:5000")
-#define BACKEND_BASE_URL        "http://192.168.1.182:5000"
+#define BACKEND_BASE_URL        "https://theft-detection-iot.onrender.com"
 #define BACKEND_TELEMETRY_PATH  "/api/telemetry"
 #define BACKEND_EVENT_PATH      "/api/events"
 #define BACKEND_CONFIG_PATH     "/api/system/config"
