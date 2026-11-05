@@ -20,27 +20,27 @@
 #define BACKEND_TELEMETRY_PATH  "/api/telemetry"
 #define BACKEND_EVENT_PATH      "/api/events"
 #define BACKEND_CONFIG_PATH     "/api/system/config"
-#define TELEMETRY_INTERVAL_MS   1500 // Send distance & status every 1.5s
-
 // --- SIM800L GSM Configuration ---
-// Emergency recipient phone number with country code (+...)
 #define ALERT_PHONE_NUMBER      "+919322992469"
 #define GSM_BAUD_RATE           9600
-#define GSM_SMS_COOLDOWN_MS     60000 // 60 seconds minimum between SMS to avoid spam
+#define GSM_SMS_COOLDOWN_MS     60000
 
 // --- Theft Detection Parameters ---
 // Distance > 30.0 cm : SAFE
 // Distance <= 30.0 cm: INTRUDER DETECTED
 #define DEFAULT_DISTANCE_THRESHOLD_CM 30.0f
 
-// Number of consecutive readings below threshold required to confirm detection
+// Number of consecutive readings below threshold required to confirm detection (1 = instant attack)
 #define CONFIRMATION_SAMPLES          1
 
-// Interval between ultrasonic sensor pings (in milliseconds)
-#define SENSOR_READ_INTERVAL_MS       60
+// Interval between ultrasonic sensor pings (in milliseconds) - 40ms = 25 scans/sec for instant zero-delay response
+#define SENSOR_READ_INTERVAL_MS       40
 
 // Duration the buzzer and relay remain active once triggered (in milliseconds)
 #define ALARM_ACTIVE_DURATION_MS      20000 // 20 seconds before auto-silencing if intruder clears
+
+// Cloud telemetry interval (5 seconds preserves CPU for instant real-time sensor detection)
+#define TELEMETRY_INTERVAL_MS         5000
 
 // --- Serial Debugging ---
 #define DEBUG_BAUD_RATE         115200

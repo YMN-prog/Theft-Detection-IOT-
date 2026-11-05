@@ -34,6 +34,12 @@ unsigned long lastSensorReadMillis = 0;
 unsigned long lastTelemetryMillis = 0;
 unsigned long lastGsmCheckMillis = 0;
 
+// Zero-delay alert dispatch queue (decouples network I/O from hardware actuation)
+bool pendingAlertDispatch = false;
+float pendingAlertDistance = 0.0f;
+unsigned long alertTriggerMillis = 0;
+bool gsmPresent = false;
+
 // Remote command handler received from backend dashboard
 void handleRemoteCommand(const String &cmd, float value) {
     Serial.printf("[Command] Backend remote command: %s (value: %.1f)\n", cmd.c_str(), value);
@@ -171,6 +177,10 @@ void setup() {
     gsmSerial.begin(GSM_BAUD_RATE);
 #endif
     gsm.begin();
+    gsmPresent = (gsm.getStatus() == GSM_READY || gsm.getStatus() == GSM_SEARCHING_NETWORK);
+    if (!gsmPresent) {
+        Serial.println("[GSM] Notice: SIM800L not detected. Bypassing GSM queries to preserve CPU speed.");
+    }
 
     // 6. Initialize Wi-Fi
     wifiManager.begin();
@@ -188,10 +198,7 @@ void loop() {
     // 1. Maintain Wi-Fi connection
     wifiManager.update();
 
-    // 2. Read optional DHT11 sensor (internal non-blocking 2-second rate limit)
-    dht.read();
-
-    // 3. Ultrasonic Sensor reading loop
+    // 2. Ultrasonic Sensor reading loop (runs every SENSOR_READ_INTERVAL_MS = 40ms, 25 scans/sec)
     if (currentMillis - lastSensorReadMillis >= SENSOR_READ_INTERVAL_MS) {
         lastSensorReadMillis = currentMillis;
 
@@ -208,77 +215,78 @@ void loop() {
                                   (distance <= security.getThreshold()) ? "INTRUDER DETECTED" : "SAFE",
                                   dht.getTemperature(), dht.getHumidity());
                 } else {
-                    Serial.printf("[Sensor] Distance: %.1f cm (Status: %s) | DHT11: (Optional sensor unconnected)\n",
+                    Serial.printf("[Sensor] Distance: %.1f cm (Status: %s)\n",
                                   distance,
                                   (distance <= security.getThreshold()) ? "INTRUDER DETECTED" : "SAFE");
                 }
             } else {
-                Serial.println("[Sensor] Distance: Out of range or no echo (check 5V VCC / TRIG / ECHO wiring)");
+                Serial.println("[Sensor] Distance: Out of range or no echo (check HC-SR04 wiring)");
             }
         }
 
         // Process distance against security rules:
         // Distance > 30cm: SAFE (Green LED ON)
-        // Distance <= 30cm: INTRUDER DETECTED (Red LED strobe, Police Siren, Relay ON, SMS dispatched)
+        // Distance <= 30cm: INTRUDER DETECTED (Red LED strobe, Police Siren, Relay ON)
         bool newAlarm = security.processReading(distance);
 
         if (newAlarm) {
             Serial.println("\n[ALERT] !!! INTRUDER DETECTED (Distance <= 30 cm) !!!");
             
-            // Activate police siren and warning strobe
+            // ZERO-DELAY INSTANT HARDWARE RESPONSE:
+            // Police siren, red warning strobe, and relay activate in 0 ms!
             actuators.setAlarm(true);
 
-            // Send immediate HTTP event to Backend
-            char desc[128];
-            snprintf(desc, sizeof(desc), "Intruder detected at %.1f cm (threshold: %.1f cm)",
-                     distance, security.getThreshold());
-            wifiManager.sendSecurityEvent(distance, security.getThreshold(), "INTRUDER_ALERT", desc);
-
-            // Dispatch SMS Alert via SIM800L (with cooldown throttle protection)
-            if (gsm.canSendSMS()) {
-                char smsMsg[160];
-                snprintf(smsMsg, sizeof(smsMsg),
-                    "SECURITY ALERT: Intruder detected! Object at %.1f cm (Limit: %.1f cm). Check property immediately!",
-                    distance, security.getThreshold()
-                );
-                bool sent = gsm.sendSMS(ALERT_PHONE_NUMBER, smsMsg);
-                if (sent) {
-                    Serial.println("[ALERT] Emergency SMS alert dispatched.");
-                } else {
-                    Serial.println("[ALERT] SMS failed (check SIM800L power or balance).");
-                }
-            } else {
-                Serial.printf("[ALERT] SMS skipped: Cooldown active (%lu s remaining)\n",
-                              gsm.getSecondsUntilNextSMS());
-            }
+            // Queue cloud and SMS alert for background dispatch so loop() never freezes
+            pendingAlertDispatch = true;
+            pendingAlertDistance = distance;
+            alertTriggerMillis = currentMillis;
         }
     }
 
-    // 4. Update Actuator flashing/police siren states
+    // 3. Update Actuator flashing/police siren states (Runs every loop iteration for smooth wail)
     actuators.update(security.isArmed(), security.isAlarmActive());
 
-    // 5. Periodically check GSM status (every 30s)
-    if (currentMillis - lastGsmCheckMillis >= 30000) {
+    // 4. Non-blocking Cloud Alert Dispatch:
+    // Dispatched 80ms after physical alarm starts so the buzzer and strobe are already actively sounding
+    if (pendingAlertDispatch && (currentMillis - alertTriggerMillis >= 80)) {
+        pendingAlertDispatch = false;
+        
+        char desc[128];
+        snprintf(desc, sizeof(desc), "Intruder detected at %.1f cm (threshold: %.1f cm)",
+                 pendingAlertDistance, security.getThreshold());
+        
+        // Transmit security event to backend
+        wifiManager.sendSecurityEvent(pendingAlertDistance, security.getThreshold(), "INTRUDER_ALERT", desc);
+
+        // Dispatch SMS if GSM module is physically detected
+        if (gsmPresent && gsm.canSendSMS()) {
+            char smsMsg[160];
+            snprintf(smsMsg, sizeof(smsMsg),
+                "SECURITY ALERT: Intruder detected! Object at %.1f cm (Limit: %.1f cm). Check property immediately!",
+                pendingAlertDistance, security.getThreshold()
+            );
+            gsm.sendSMS(ALERT_PHONE_NUMBER, smsMsg);
+        }
+    }
+
+    // 5. Periodically check GSM status (every 30s) ONLY if GSM is present
+    if (gsmPresent && (currentMillis - lastGsmCheckMillis >= 30000)) {
         lastGsmCheckMillis = currentMillis;
         gsm.checkStatus();
     }
 
-    // 6. Send periodic Telemetry to Backend
-    if (currentMillis - lastTelemetryMillis >= TELEMETRY_INTERVAL_MS) {
+    // 6. Send periodic Telemetry to Backend (only when not actively dispatching an alarm)
+    if (!pendingAlertDispatch && (currentMillis - lastTelemetryMillis >= TELEMETRY_INTERVAL_MS)) {
         lastTelemetryMillis = currentMillis;
+
+        // Sample DHT11 only once per telemetry interval (preserves CPU for ultrasonic sensor)
+        dht.read();
 
         const char* stateStr = "DISARMED";
         if (security.getState() == STATE_ARMED_NORMAL) stateStr = "SAFE_ARMED";
         else if (security.getState() == STATE_ALARM_TRIGGERED) stateStr = "INTRUDER_DETECTED";
 
-        const char* gsmStatusStr = "UNKNOWN";
-        switch (gsm.getStatus()) {
-            case GSM_READY: gsmStatusStr = "READY"; break;
-            case GSM_SEARCHING_NETWORK: gsmStatusStr = "SEARCHING"; break;
-            case GSM_SIM_ERROR: gsmStatusStr = "SIM_ERROR"; break;
-            case GSM_NO_RESPONSE: gsmStatusStr = "NO_RESPONSE"; break;
-            default: gsmStatusStr = "INITIALIZING"; break;
-        }
+        const char* gsmStatusStr = gsmPresent ? "READY" : "NOT_CONNECTED";
 
         SystemTelemetryData telemetry;
         telemetry.distanceCm = security.getLastDistance();
@@ -289,7 +297,7 @@ void loop() {
         telemetry.redLedState = actuators.isRedLedActive();
         telemetry.greenLedState = actuators.isGreenLedActive();
         telemetry.gsmStatus = gsmStatusStr;
-        telemetry.gsmRssi = gsm.getSignalQuality();
+        telemetry.gsmRssi = gsmPresent ? gsm.getSignalQuality() : 0;
         telemetry.wifiRssi = wifiManager.getRSSI();
         telemetry.isArmed = security.isArmed();
         telemetry.isAlarm = security.isAlarmActive();

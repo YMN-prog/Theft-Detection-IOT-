@@ -23,9 +23,9 @@ float UltrasonicSensor::readDistanceRaw() {
     delayMicroseconds(10);
     digitalWrite(_trigPin, LOW);
 
-    // Read ECHO pulse duration with 20ms timeout (~340cm max range)
-    // Avoids blocking if sensor is unplugged or fails to echo
-    unsigned long duration = pulseIn(_echoPin, HIGH, 20000UL);
+    // Read ECHO pulse duration with 12ms timeout (~200cm max range)
+    // Avoids blocking CPU so detection loop runs at maximum responsiveness
+    unsigned long duration = pulseIn(_echoPin, HIGH, 12000UL);
 
     if (duration == 0) {
         return -1.0f; // Timeout or sensor disconnected
