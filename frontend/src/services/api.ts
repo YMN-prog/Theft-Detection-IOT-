@@ -1,6 +1,7 @@
 import { SystemState, TelemetryData, SecurityEvent } from '../types';
 
-const API_BASE = '/api';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
+const API_BASE = BACKEND_URL ? `${BACKEND_URL.replace(/\/$/, '')}/api` : '/api';
 
 export async function fetchStatus(): Promise<{ state: SystemState; latest: TelemetryData | null }> {
   const res = await fetch(`${API_BASE}/system/status`);

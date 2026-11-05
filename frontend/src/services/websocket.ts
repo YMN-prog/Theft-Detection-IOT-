@@ -22,10 +22,21 @@ class WebSocketClient {
     }
 
     this.isConnecting = true;
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Connect to backend port 5000
-    const host = window.location.hostname || 'localhost';
-    const wsUrl = `${protocol}//${host}:5000`;
+    const backendEnv = import.meta.env.VITE_BACKEND_URL;
+    let wsUrl = '';
+    if (backendEnv) {
+      try {
+        const url = new URL(backendEnv);
+        const wsProto = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsUrl = `${wsProto}//${url.host}`;
+      } catch (e) {
+        wsUrl = backendEnv.replace(/^http/, 'ws');
+      }
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.hostname || 'localhost';
+      wsUrl = `${protocol}//${host}:5000`;
+    }
 
     try {
       this.socket = new WebSocket(wsUrl);
