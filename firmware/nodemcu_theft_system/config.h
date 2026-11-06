@@ -10,8 +10,8 @@
 
 // --- Wi-Fi Network Credentials ---
 // Enter your 2.4 GHz Wi-Fi router credentials (ESP8266 does not support 5 GHz)
-#define WIFI_SSID               "Jiofiber"
-#define WIFI_PASSWORD           "9527300033"
+#define WIFI_SSID               "YMN"
+#define WIFI_PASSWORD           "Omegalambda7XL9"
 #define WIFI_RECONNECT_INTERVAL 5000 // Milliseconds between Wi-Fi reconnect attempts
 
 // --- Backend API Configuration ---
