@@ -173,14 +173,14 @@ export const HardwareStatus: React.FC<HardwareStatusProps> = ({
         </div>
       </div>
 
-      {/* DHT11 Environmental Sensor Status Banner */}
+      {/* DHT22 Environmental Sensor Status Banner */}
       <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2.5">
             <Thermometer className="w-5 h-5 text-amber-400" />
             <div>
-              <h3 className="text-sm font-semibold text-white">DHT11 Environmental Sensor (D3 / GPIO0)</h3>
-              <p className="text-xs text-slate-400">Temperature & Humidity monitoring (Safe optional mode)</p>
+              <h3 className="text-sm font-semibold text-white">DHT22 Environmental Sensor (D3 / GPIO0)</h3>
+              <p className="text-xs text-slate-400">High-precision Temperature & Humidity monitoring (AM2302)</p>
             </div>
           </div>
           <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold self-start sm:self-center border ${
@@ -188,7 +188,7 @@ export const HardwareStatus: React.FC<HardwareStatusProps> = ({
               ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
               : 'bg-slate-800 text-slate-400 border-slate-700'
           }`}>
-            {hasDht ? '● DHT11 Connected' : 'Optional Sensor Standby'}
+            {hasDht ? '● DHT22 Connected' : 'Optional Sensor Standby'}
           </span>
         </div>
 

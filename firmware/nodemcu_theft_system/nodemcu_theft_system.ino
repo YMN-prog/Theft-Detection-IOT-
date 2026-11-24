@@ -16,7 +16,7 @@
 // Hardware instances
 UltrasonicSensor ultrasonic(PIN_ULTRASONIC_TRIG, PIN_ULTRASONIC_ECHO);
 ActuatorController actuators;
-DHT11Sensor dht(PIN_DHT11);
+DHT11Sensor dht(PIN_DHT11, DHT_TYPE_DHT22);
 
 #if defined(ESP8266)
     // SoftwareSerial for SIM800L keeps USB hardware UART0 free for flashing and debugging
@@ -109,9 +109,9 @@ void handleSerialCommands() {
                                    (security.getState() == STATE_ARMED_NORMAL ? "SAFE (ARMED)" : "INTRUDER DETECTED!"));
         Serial.printf("Last Distance: %.1f cm (Threshold: %.1f cm)\n", security.getLastDistance(), security.getThreshold());
         if (dht.hasValidReading()) {
-            Serial.printf("DHT11: Temp: %.1f C, Humidity: %.1f %%\n", dht.getTemperature(), dht.getHumidity());
+            Serial.printf("DHT22: Temp: %.1f C, Humidity: %.1f %%\n", dht.getTemperature(), dht.getHumidity());
         } else {
-            Serial.println("DHT11: Standby / Not Connected (Optional sensor)");
+            Serial.println("DHT22: Standby / Not Connected (Optional sensor)");
         }
         Serial.printf("Wi-Fi Connected: %s (IP: %s, RSSI: %d dBm)\n", wifiManager.isConnected() ? "YES" : "NO",
                       wifiManager.getLocalIP().c_str(), wifiManager.getRSSI());
@@ -151,9 +151,9 @@ void setup() {
     ultrasonic.begin();
     Serial.println("[Init] HC-SR04 configured (TRIG: D1/GPIO5, ECHO: D2/GPIO4).");
 
-    // 2. Initialize optional DHT11 sensor (D3/GPIO0)
+    // 2. Initialize optional DHT22 sensor (D3/GPIO0)
     dht.begin();
-    Serial.println("[Init] DHT11 configured on D3 (GPIO0) - safe optional mode.");
+    Serial.println("[Init] DHT22 configured on D3 (GPIO0) - high-precision environmental mode.");
 
     // 3. Initialize actuators (Buzzer D8, Relay D4, Red LED D0, Green LED D5)
     actuators.begin();
@@ -210,7 +210,7 @@ void loop() {
             lastDistanceLog = currentMillis;
             if (distance > 0.0f) {
                 if (dht.hasValidReading()) {
-                    Serial.printf("[Sensor] Distance: %.1f cm (Status: %s) | DHT11: %.1f C, %.1f %%\n",
+                    Serial.printf("[Sensor] Distance: %.1f cm (Status: %s) | DHT22: %.1f C, %.1f %%\n",
                                   distance,
                                   (distance <= security.getThreshold()) ? "INTRUDER DETECTED" : "SAFE",
                                   dht.getTemperature(), dht.getHumidity());
