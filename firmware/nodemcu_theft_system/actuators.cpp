@@ -60,13 +60,12 @@ void ActuatorController::setAlarm(bool active) {
         _strobeToggle = true;
         _lastStrobeMillis = millis();
         _lastSirenStepMillis = millis();
-        _sirenFreq = 650;
+        _sirenFreq = 600;
         _sirenRising = true;
         setRedLed(true);
         setRelay(true);
         setGreenLed(false);
         tone(PIN_BUZZER, _sirenFreq);
-        digitalWrite(PIN_BUZZER, HIGH);
         _buzzerState = true;
     } else {
         noTone(PIN_BUZZER);
@@ -74,7 +73,7 @@ void ActuatorController::setAlarm(bool active) {
         _buzzerState = false;
         setRelay(false);
         setRedLed(false);
-        _sirenFreq = 650;
+        _sirenFreq = 600;
         _sirenRising = true;
     }
 }
@@ -92,26 +91,24 @@ void ActuatorController::update(bool isArmed, bool isAlarmActive) {
             setGreenLed(false); // In alarm, green is always OFF
         }
 
-        // 2. Police Siren Sound Effect (wailing sweep between 650 Hz and 1450 Hz)
-        // Steps every 15ms for smooth rising & falling siren acoustic pitch
+        // 2. High-Impact Police Siren Sound Effect (Rapid Police Wail / Yelp)
+        // Continuously sweeps between 600 Hz and 1450 Hz every 15ms without interruption
         if (currentMillis - _lastSirenStepMillis >= 15) {
             _lastSirenStepMillis = currentMillis;
             if (_sirenRising) {
-                _sirenFreq += 30;
+                _sirenFreq += 35;
                 if (_sirenFreq >= 1450) {
                     _sirenFreq = 1450;
                     _sirenRising = false;
                 }
             } else {
-                _sirenFreq -= 30;
-                if (_sirenFreq <= 650) {
-                    _sirenFreq = 650;
+                _sirenFreq -= 35;
+                if (_sirenFreq <= 600) {
+                    _sirenFreq = 600;
                     _sirenRising = true;
                 }
             }
             tone(PIN_BUZZER, _sirenFreq);
-            // Also alternate DC pin at inflection points for active buzzer support
-            digitalWrite(PIN_BUZZER, _sirenRising ? HIGH : LOW);
             _buzzerState = true;
         }
 
