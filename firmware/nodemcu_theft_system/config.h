@@ -39,8 +39,8 @@
 // Duration the buzzer and relay remain active once triggered (in milliseconds)
 #define ALARM_ACTIVE_DURATION_MS      20000 // 20 seconds before auto-silencing if intruder clears
 
-// Cloud telemetry interval (5 seconds preserves CPU for instant real-time sensor detection)
-#define TELEMETRY_INTERVAL_MS         5000
+// Cloud telemetry interval (2 seconds gives responsive real-time web telemetry without impacting detection)
+#define TELEMETRY_INTERVAL_MS         2000
 
 // --- Serial Debugging ---
 #define DEBUG_BAUD_RATE         115200

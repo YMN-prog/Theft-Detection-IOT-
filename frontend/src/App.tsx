@@ -114,15 +114,16 @@ export const App: React.FC = () => {
       if (data.systemState) setSystemState(data.systemState);
     });
 
-    // Periodic polling fallback to guarantee live updates regardless of WebSocket connection status
+    // Fallback poll: only queries REST when WebSocket is disconnected to eliminate unnecessary traffic
     const pollInterval = setInterval(() => {
+      if (wsClient.getStatus()) return;
       fetchStatus()
         .then(res => {
           setSystemState(res.state);
           if (res.latest) setTelemetry(res.latest);
         })
         .catch(() => {});
-    }, 2500);
+    }, 3000);
 
     return () => {
       clearInterval(pollInterval);
@@ -134,55 +135,62 @@ export const App: React.FC = () => {
   }, []);
 
   const handleArmToggle = async () => {
+    const nextArmed = !systemState.armed;
+    // 1. Instant optimistic UI update (0 ms response)
+    setSystemState(prev => ({ ...prev, armed: nextArmed }));
+    // 2. Instant WebSocket command
+    wsClient.sendCommand(nextArmed ? 'arm' : 'disarm');
+    // 3. Background REST synchronization
     try {
-      setIsLoading(true);
-      if (systemState.armed) {
-        const res = await disarmSystem();
-        setSystemState(res.state);
-      } else {
-        const res = await armSystem();
-        setSystemState(res.state);
-      }
+      const res = nextArmed ? await armSystem() : await disarmSystem();
+      setSystemState(res.state);
     } catch (err) {
       console.error('Failed to toggle arm status:', err);
-    } finally {
-      setIsLoading(false);
+      setSystemState(prev => ({ ...prev, armed: !nextArmed }));
     }
   };
 
   const handleResetAlarm = async () => {
+    // 1. Instant optimistic UI update (0 ms response)
+    setSystemState(prev => ({ ...prev, alarm: false }));
+    setTelemetry(prev => prev ? ({ ...prev, alarm: false }) : null);
+    // 2. Instant WebSocket command
+    wsClient.sendCommand('reset');
+    // 3. Background REST synchronization
     try {
-      setIsLoading(true);
       const res = await resetAlarm();
       setSystemState(res.state);
     } catch (err) {
       console.error('Failed to reset alarm:', err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleUpdateThreshold = async (newVal: number) => {
+    // 1. Instant optimistic UI update
+    setSystemState(prev => ({ ...prev, threshold: newVal }));
+    // 2. Instant WebSocket command
+    wsClient.sendCommand('setThreshold', newVal);
+    // 3. Background REST synchronization
     try {
-      setIsLoading(true);
       const res = await updateThreshold(newVal);
       setSystemState(res.state);
     } catch (err) {
       console.error('Failed to update threshold:', err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleGreenLedChange = async (mode: 'auto' | 'on' | 'off') => {
+    // 1. Instant optimistic UI update
+    setSystemState(prev => ({ ...prev, greenLedMode: mode }));
+    // 2. Instant WebSocket command
+    const wsCmd = mode === 'on' ? 'greenOn' : mode === 'off' ? 'greenOff' : 'greenAuto';
+    wsClient.sendCommand(wsCmd);
+    // 3. Background REST synchronization
     try {
-      setIsLoading(true);
       const res = await setGreenLedMode(mode);
       setSystemState(res.state);
     } catch (err) {
       console.error('Failed to set green LED mode:', err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
