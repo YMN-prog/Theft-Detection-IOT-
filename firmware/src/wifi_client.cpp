@@ -95,8 +95,10 @@ bool WiFiManager::sendTelemetry(const SystemTelemetryData &data, String &outServ
     }
 #endif
 
+    http.setReuse(true);
     http.addHeader("Content-Type", "application/json");
-    http.setTimeout(3500);
+    http.addHeader("Connection", "keep-alive");
+    http.setTimeout(2500);
 
     char tempBuf[32];
     char humBuf[32];
@@ -173,8 +175,10 @@ bool WiFiManager::sendSecurityEvent(float distanceCm, float thresholdCm, const S
     }
 #endif
 
+    http.setReuse(true);
     http.addHeader("Content-Type", "application/json");
-    http.setTimeout(4000);
+    http.addHeader("Connection", "keep-alive");
+    http.setTimeout(3000);
 
     char payload[300];
     snprintf(payload, sizeof(payload),

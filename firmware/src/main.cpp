@@ -39,6 +39,7 @@ bool pendingAlertDispatch = false;
 float pendingAlertDistance = 0.0f;
 unsigned long alertTriggerMillis = 0;
 bool gsmPresent = false;
+float lastReportedDistance = -999.0f;
 
 // Remote command handler received from backend dashboard
 void handleRemoteCommand(const String &cmd, float value) {
@@ -275,11 +276,26 @@ void loop() {
         gsm.checkStatus();
     }
 
-    // 6. Send periodic Telemetry to Backend (only when not actively dispatching an alarm)
-    if (!pendingAlertDispatch && (currentMillis - lastTelemetryMillis >= TELEMETRY_INTERVAL_MS)) {
-        lastTelemetryMillis = currentMillis;
+    // 6. Fast-Track & Heartbeat Telemetry to Backend
+    // Sends immediately (>= 300ms) on movement, or every 2s on steady state
+    float currentDist = security.getLastDistance();
+    bool distanceShifted = (currentDist > 0.0f && lastReportedDistance > 0.0f && fabs(currentDist - lastReportedDistance) >= 3.0f);
+    bool thresholdCrossed = (currentDist > 0.0f && ((currentDist <= security.getThreshold()) != (lastReportedDistance <= security.getThreshold())));
 
-        // Sample DHT11 only once per telemetry interval (preserves CPU for ultrasonic sensor)
+    bool shouldSendTelemetry = false;
+    if (!pendingAlertDispatch) {
+        if (currentMillis - lastTelemetryMillis >= TELEMETRY_INTERVAL_MS) {
+            shouldSendTelemetry = true; // Periodic heartbeat
+        } else if ((distanceShifted || thresholdCrossed) && (currentMillis - lastTelemetryMillis >= 300)) {
+            shouldSendTelemetry = true; // Instant fast-track on motion
+        }
+    }
+
+    if (shouldSendTelemetry) {
+        lastTelemetryMillis = currentMillis;
+        lastReportedDistance = currentDist;
+
+        // Sample DHT22 once every 2 seconds
         dht.read();
 
         const char* stateStr = "DISARMED";
@@ -289,7 +305,7 @@ void loop() {
         const char* gsmStatusStr = gsmPresent ? "READY" : "NOT_CONNECTED";
 
         SystemTelemetryData telemetry;
-        telemetry.distanceCm = security.getLastDistance();
+        telemetry.distanceCm = currentDist;
         telemetry.thresholdCm = security.getThreshold();
         telemetry.securityState = stateStr;
         telemetry.buzzerState = actuators.isBuzzerActive();

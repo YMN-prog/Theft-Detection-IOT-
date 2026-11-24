@@ -61,6 +61,16 @@ class WebSocketManager {
         this.broadcastStateChange();
       } else if (command === 'reset') {
         db.setAlarmState(false);
+        const latest = db.getLatestTelemetry();
+        if (latest) {
+          latest.alarm = false;
+          latest.buzzer = false;
+          latest.relay = false;
+          latest.redLed = false;
+          latest.greenLed = true;
+          latest.state = 'ARMED_NORMAL';
+          this.broadcastTelemetry(latest);
+        }
         this.broadcastStateChange();
       } else if (command === 'setThreshold') {
         const t = parseFloat(value);

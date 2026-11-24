@@ -20,6 +20,28 @@ router.post('/', (req: Request, res: Response) => {
     // Mark system in alarm state
     if (event.type === 'INTRUDER_ALERT') {
       db.setAlarmState(true);
+      // Immediately update latest telemetry with intruder distance and alarm flags
+      if (typeof distance === 'number' && distance > 0) {
+        const prevTel = db.getLatestTelemetry();
+        const alertTelemetry = db.saveTelemetry({
+          distance,
+          threshold: event.threshold,
+          state: 'ALARM_TRIGGERED',
+          armed: true,
+          alarm: true,
+          buzzer: true,
+          relay: true,
+          redLed: true,
+          greenLed: false,
+          gsmStatus: prevTel?.gsmStatus || 'NOT_CONNECTED',
+          gsmRssi: prevTel?.gsmRssi ?? 0,
+          wifiRssi: prevTel?.wifiRssi ?? -40,
+          ip: prevTel?.ip || req.ip || '127.0.0.1',
+          temperature: prevTel?.temperature ?? null,
+          humidity: prevTel?.humidity ?? null
+        });
+        wsManager.broadcastTelemetry(alertTelemetry);
+      }
     }
 
     // Broadcast high-priority alert to all connected dashboard clients

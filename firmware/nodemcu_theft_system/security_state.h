@@ -41,6 +41,7 @@ private:
     float _lastDistanceCm;
     int _consecutiveViolations;
     unsigned long _alarmStartMillis;
+    unsigned long _silenceUntilMillis;
     int _totalTriggers;
 };
 

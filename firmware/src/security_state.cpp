@@ -6,6 +6,7 @@ SecurityStateMachine::SecurityStateMachine()
       _lastDistanceCm(-1.0f),
       _consecutiveViolations(0),
       _alarmStartMillis(0),
+      _silenceUntilMillis(0),
       _totalTriggers(0) {}
 
 void SecurityStateMachine::begin() {
@@ -13,6 +14,7 @@ void SecurityStateMachine::begin() {
     _state = STATE_ARMED_NORMAL;
     _consecutiveViolations = 0;
     _alarmStartMillis = 0;
+    _silenceUntilMillis = 0;
     Serial.printf("[Security] State machine ready. Detection threshold: %.1f cm (Status: ARMED_SAFE)\n", _thresholdCm);
 }
 
@@ -20,6 +22,7 @@ void SecurityStateMachine::arm() {
     if (_state != STATE_ARMED_NORMAL) {
         _state = STATE_ARMED_NORMAL;
         _consecutiveViolations = 0;
+        _silenceUntilMillis = 0;
         Serial.println("[Security] System is now ARMED. Monitoring ultrasonic field...");
     }
 }
@@ -28,16 +31,16 @@ void SecurityStateMachine::disarm() {
     _state = STATE_DISARMED;
     _consecutiveViolations = 0;
     _alarmStartMillis = 0;
+    _silenceUntilMillis = 0;
     Serial.println("[Security] System is now DISARMED. Peripherals standing by.");
 }
 
 void SecurityStateMachine::resetAlarm() {
-    if (_state == STATE_ALARM_TRIGGERED) {
-        _state = STATE_ARMED_NORMAL;
-        _consecutiveViolations = 0;
-        _alarmStartMillis = 0;
-        Serial.println("[Security] Alarm silenced/reset. Returning to ARMED mode.");
-    }
+    _state = STATE_ARMED_NORMAL;
+    _consecutiveViolations = 0;
+    _alarmStartMillis = 0;
+    _silenceUntilMillis = millis() + 6000; // 6-second silence grace period prevents immediate re-trigger
+    Serial.println("[Security] Alarm silenced/reset. 6-second silence grace period active.");
 }
 
 void SecurityStateMachine::setThreshold(float thresholdCm) {
@@ -56,20 +59,21 @@ bool SecurityStateMachine::processReading(float currentDistanceCm) {
         return false;
     }
 
-    // In ALARM_TRIGGERED mode: Check for automatic safe-state recovery when object moves away
-    if (_state == STATE_ALARM_TRIGGERED) {
-        // Condition 1: Object moved away beyond threshold (> 30 cm) and alarm ran for at least 5 seconds
-        if (currentDistanceCm > _thresholdCm && (millis() - _alarmStartMillis >= 5000)) {
-            Serial.printf("[Security] Perimeter clear (Distance %.1f cm > %.1f cm). Auto-recovering to SAFE state.\n",
-                          currentDistanceCm, _thresholdCm);
-            _state = STATE_ARMED_NORMAL;
-            _consecutiveViolations = 0;
-            return false;
+    // Silence grace period active: suppress alarm re-triggering while user is clearing the area
+    if (millis() < _silenceUntilMillis) {
+        if (currentDistanceCm > _thresholdCm) {
+            // Obstacle moved away: end grace period immediately so system is armed for new intrusions
+            _silenceUntilMillis = 0;
         }
+        _consecutiveViolations = 0;
+        return false;
+    }
 
-        // Condition 2: Max alarm duration timeout (20s)
+    // In ALARM_TRIGGERED mode:
+    // Sustains the alarm for the full ALARM_ACTIVE_DURATION_MS (25 seconds) unless user explicitly silences it!
+    if (_state == STATE_ALARM_TRIGGERED) {
         if (millis() - _alarmStartMillis >= ALARM_ACTIVE_DURATION_MS) {
-            Serial.println("[Security] Alarm duration timeout elapsed. Resetting to Armed standby.");
+            Serial.println("[Security] Alarm duration timeout elapsed (full duration completed). Resetting to Armed standby.");
             _state = STATE_ARMED_NORMAL;
             _consecutiveViolations = 0;
         }

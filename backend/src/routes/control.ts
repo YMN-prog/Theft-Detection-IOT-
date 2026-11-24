@@ -30,6 +30,16 @@ router.post('/disarm', (_req: Request, res: Response) => {
 // Reset / silence alarm
 router.post('/reset', (_req: Request, res: Response) => {
   db.setAlarmState(false);
+  const latest = db.getLatestTelemetry();
+  if (latest) {
+    latest.alarm = false;
+    latest.buzzer = false;
+    latest.relay = false;
+    latest.redLed = false;
+    latest.greenLed = true;
+    latest.state = 'ARMED_NORMAL';
+    wsManager.broadcastTelemetry(latest);
+  }
   wsManager.broadcastStateChange();
   res.json({ success: true, message: 'Alarm reset successfully', state: db.getSystemState() });
 });

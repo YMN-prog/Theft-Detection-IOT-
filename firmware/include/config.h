@@ -36,8 +36,8 @@
 // Interval between ultrasonic sensor pings (in milliseconds) - 40ms = 25 scans/sec for instant zero-delay response
 #define SENSOR_READ_INTERVAL_MS       40
 
-// Duration the buzzer and relay remain active once triggered (in milliseconds)
-#define ALARM_ACTIVE_DURATION_MS      20000 // 20 seconds before auto-silencing if intruder clears
+// Duration the buzzer and relay remain active once triggered (25 seconds sustained alarm or until silenced)
+#define ALARM_ACTIVE_DURATION_MS      25000
 
 // Cloud telemetry interval (2 seconds gives responsive real-time web telemetry without impacting detection)
 #define TELEMETRY_INTERVAL_MS         2000
